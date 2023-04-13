@@ -17,13 +17,6 @@
 
 package com.comphenix.protocol.async;
 
-import java.util.HashSet;
-import java.util.Set;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.error.Report;
 import com.comphenix.protocol.error.ReportType;
@@ -36,114 +29,122 @@ import com.comphenix.protocol.timing.TimedListenerManager.ListenerType;
 import com.comphenix.protocol.timing.TimedTracker;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
-
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import org.bukkit.plugin.Plugin;
+
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Represents a handler for an asynchronous event.
  * <p>
  * Use {@link AsyncMarker#incrementProcessingDelay()} to delay a packet until a certain condition has been met.
+ *
  * @author Kristian
  */
 public class AsyncListenerHandler {
-	public static final ReportType REPORT_HANDLER_NOT_STARTED = new ReportType(
-		"Plugin %s did not start the asynchronous handler %s by calling start() or syncStart().");
+    public static final ReportType REPORT_HANDLER_NOT_STARTED = new ReportType(
+            "Plugin %s did not start the asynchronous handler %s by calling start() or syncStart().");
 
-	/**
-	 * Signal an end to packet processing.
-	 */
-	private static final PacketEvent INTERUPT_PACKET = new PacketEvent(new Object());
-	
-	/**
-	 * Called when the threads have to wake up for something important.
-	 */
-	private static final PacketEvent WAKEUP_PACKET = new PacketEvent(new Object());
-	
-	/**
-	 * The expected number of ticks per second.
-	 */
-	private static final int TICKS_PER_SECOND = 20;
-	
-	// Unique worker ID
-	private static final AtomicInteger nextID = new AtomicInteger();
-	
-	// Default queue capacity
-	private static final int DEFAULT_CAPACITY = 1024;
-	
-	// Cancel the async handler
-	private volatile boolean cancelled;
-	
-	// Number of worker threads
-	private final AtomicInteger started = new AtomicInteger();
-	
-	// The packet listener
-	private PacketListener listener;
+    /**
+     * Signal an end to packet processing.
+     */
+    private static final PacketEvent INTERUPT_PACKET = new PacketEvent(new Object());
 
-	// The filter manager
-	private AsyncFilterManager filterManager;
-	private NullPacketListener nullPacketListener;
-	
-	// List of queued packets
-	private ArrayBlockingQueue<PacketEvent> queuedPackets = new ArrayBlockingQueue<PacketEvent>(DEFAULT_CAPACITY);
-	
-	// List of cancelled tasks
-	private final Set<Integer> stoppedTasks = new HashSet<Integer>();
-	private final Object stopLock = new Object();
-	
-	// Processing task on the main thread
-	private int syncTask = -1;
-	
-	// Minecraft main thread
-	private Thread mainThread;
-	
-	// Warn plugins that the async listener handler must be started
-	private int warningTask;
-	
-	// Timing manager
-	private TimedListenerManager timedManager = TimedListenerManager.getInstance();
-	
-	/**
-	 * Construct a manager for an asynchronous packet handler.
-	 * @param mainThread - the main game thread.
-	 * @param filterManager - the parent filter manager.
-	 * @param listener - the current packet listener.
-	 */
-	AsyncListenerHandler(Thread mainThread, AsyncFilterManager filterManager, PacketListener listener) {
-		if (filterManager == null)
-			throw new IllegalArgumentException("filterManager cannot be NULL");
-		if (listener == null)
-			throw new IllegalArgumentException("listener cannot be NULL");
+    /**
+     * Called when the threads have to wake up for something important.
+     */
+    private static final PacketEvent WAKEUP_PACKET = new PacketEvent(new Object());
 
-		this.mainThread = mainThread;
-		this.filterManager = filterManager;
-		this.listener = listener;
-		startWarningTask();
-	}
-	
-	private void startWarningTask() {
-		warningTask = filterManager.getScheduler().scheduleSyncDelayedTask(getPlugin(), () -> ProtocolLibrary.getErrorReporter().reportWarning(AsyncListenerHandler.this, Report.
-																 newBuilder(REPORT_HANDLER_NOT_STARTED).
-																 messageParam(listener.getPlugin(), AsyncListenerHandler.this).
-																 build()), 2 * TICKS_PER_SECOND);
-	}
-	
-	private void stopWarningTask() {
-		int taskId = warningTask;
-		
-		// Ensure we have a task to cancel
-		if (warningTask >= 0) {
-			filterManager.getScheduler().cancelTask(taskId);
-			warningTask = -1;
-		}
-	}
-	
-	/**
-	 * Determine whether or not this asynchronous handler has been cancelled.
-	 * @return TRUE if it has been cancelled/stopped, FALSE otherwise.
-	 */
-	public boolean isCancelled() {
-		return cancelled;
-	}
+    /**
+     * The expected number of ticks per second.
+     */
+    private static final int TICKS_PER_SECOND = 20;
+
+    // Unique worker ID
+    private static final AtomicInteger nextID = new AtomicInteger();
+
+    // Default queue capacity
+    private static final int DEFAULT_CAPACITY = 1024;
+
+    // Cancel the async handler
+    private volatile boolean cancelled;
+
+    // Number of worker threads
+    private final AtomicInteger started = new AtomicInteger();
+
+    // The packet listener
+    private PacketListener listener;
+
+    // The filter manager
+    private AsyncFilterManager filterManager;
+    private NullPacketListener nullPacketListener;
+
+    // List of queued packets
+    private ArrayBlockingQueue<PacketEvent> queuedPackets = new ArrayBlockingQueue<PacketEvent>(DEFAULT_CAPACITY);
+
+    // List of cancelled tasks
+    private final Set<Integer> stoppedTasks = new HashSet<Integer>();
+    private final Object stopLock = new Object();
+
+    // Processing task on the main thread
+    private ScheduledTask syncTask = null;
+
+    // Minecraft main thread
+    private Thread mainThread;
+
+    // Warn plugins that the async listener handler must be started
+    private ScheduledTask warningTask = null;
+
+    // Timing manager
+    private TimedListenerManager timedManager = TimedListenerManager.getInstance();
+
+    /**
+     * Construct a manager for an asynchronous packet handler.
+     *
+     * @param mainThread    - the main game thread.
+     * @param filterManager - the parent filter manager.
+     * @param listener      - the current packet listener.
+     */
+    AsyncListenerHandler(Thread mainThread, AsyncFilterManager filterManager, PacketListener listener) {
+        if (filterManager == null)
+            throw new IllegalArgumentException("filterManager cannot be NULL");
+        if (listener == null)
+            throw new IllegalArgumentException("listener cannot be NULL");
+
+        this.mainThread = mainThread;
+        this.filterManager = filterManager;
+        this.listener = listener;
+        startWarningTask();
+    }
+
+    private void startWarningTask() {
+        warningTask = filterManager.getGlobalScheduler().runDelayed(getPlugin(), task -> ProtocolLibrary.getErrorReporter().reportWarning(AsyncListenerHandler.this, Report.
+                newBuilder(REPORT_HANDLER_NOT_STARTED).
+                messageParam(listener.getPlugin(), AsyncListenerHandler.this).
+                build()), 2 * TICKS_PER_SECOND);
+    }
+
+    private void stopWarningTask() {
+        // Ensure we have a task to cancel
+        if (warningTask != null) {
+            warningTask.cancel();
+            warningTask = null;
+        }
+    }
+
+    /**
+     * Determine whether or not this asynchronous handler has been cancelled.
+     *
+     * @return TRUE if it has been cancelled/stopped, FALSE otherwise.
+     */
+    public boolean isCancelled() {
+        return cancelled;
+    }
 
 	/**
 	 * Retrieve the current asynchronous packet listener.
@@ -406,10 +407,10 @@ public class AsyncListenerHandler {
 		final long tickDelay = 1;
 		final int workerID = nextID.incrementAndGet();
 		
-		if (syncTask < 0) {
+		if (syncTask == null) {
 			stopWarningTask();
 			
-			syncTask = filterManager.getScheduler().scheduleSyncRepeatingTask(getPlugin(), () -> {
+			syncTask = filterManager.getGlobalScheduler().runAtFixedRate(getPlugin(), task -> {
 				long stopTime = System.nanoTime() + unit.convert(time, TimeUnit.NANOSECONDS);
 
 				while (!cancelled) {
@@ -435,7 +436,7 @@ public class AsyncListenerHandler {
 			}, tickDelay, tickDelay);
 			
 			// This is very bad - force the caller to handle it
-			if (syncTask < 0)
+			if (syncTask == null)
 				throw new IllegalStateException("Cannot start synchronous task.");
 			else
 				return true;
@@ -448,16 +449,15 @@ public class AsyncListenerHandler {
 	 * Stop processing packets on the main thread.
 	 * @return TRUE if we stopped any processing tasks, FALSE if it has already been stopped.
 	 */
-	public synchronized boolean syncStop() {
-		if (syncTask > 0) {
-			filterManager.getScheduler().cancelTask(syncTask);
-			
-			syncTask = -1;
-			return true;
-		} else {
-			return false;
-		}
-	}
+    public synchronized boolean syncStop() {
+        if (syncTask != null) {
+            syncTask.cancel();
+            syncTask = null;
+            return true;
+        } else {
+            return false;
+        }
+    }
 	
 	/**
 	 * Start multiple worker threads for this listener.

@@ -32,10 +32,10 @@ import com.comphenix.protocol.reflect.accessors.Accessors;
 import com.comphenix.protocol.reflect.accessors.MethodAccessor;
 import com.comphenix.protocol.utility.ByteBuddyFactory;
 
+import com.destroystokyo.paper.profile.PlayerProfile;
 import org.bukkit.*;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
-import org.bukkit.profile.PlayerProfile;
 
 import net.bytebuddy.description.ByteCodeElement;
 import net.bytebuddy.description.modifier.Visibility;
@@ -51,6 +51,7 @@ import net.bytebuddy.implementation.bind.annotation.FieldValue;
 import net.bytebuddy.implementation.bind.annotation.RuntimeType;
 import net.bytebuddy.matcher.ElementMatcher;
 import net.bytebuddy.matcher.ElementMatchers;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Represents a player object that can be serialized by Java.
@@ -76,6 +77,8 @@ class SerializedOfflinePlayer implements OfflinePlayer, Serializable {
 	private boolean playedBefore;
 	private boolean online;
 	private boolean whitelisted;
+	private long lastSeen;
+	private long lastLogin;
 
 	private static final Constructor<?> proxyPlayerConstructor = setupProxyPlayerConstructor();
 
@@ -100,6 +103,8 @@ class SerializedOfflinePlayer implements OfflinePlayer, Serializable {
 		this.playedBefore = offline.hasPlayedBefore();
 		this.online = offline.isOnline();
 		this.whitelisted = offline.isWhitelisted();
+		this.lastLogin = offline.getLastLogin();
+		this.lastSeen = offline.getLastSeen();
 	}
 	
 	@Override
@@ -120,6 +125,16 @@ class SerializedOfflinePlayer implements OfflinePlayer, Serializable {
 	@Override
 	public Location getBedSpawnLocation() {
 		return bedSpawnLocation;
+	}
+
+	@Override
+	public long getLastLogin() {
+		return lastLogin;
+	}
+
+	@Override
+	public long getLastSeen() {
+		return lastSeen;
 	}
 
 	// TODO do we need to implement this?
@@ -187,7 +202,7 @@ class SerializedOfflinePlayer implements OfflinePlayer, Serializable {
 	}
 
 	@Override
-	public PlayerProfile getPlayerProfile() {
+	public @NotNull PlayerProfile getPlayerProfile() {
 		return null;
 	}
 

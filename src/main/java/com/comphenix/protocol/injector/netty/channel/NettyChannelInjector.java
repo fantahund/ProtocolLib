@@ -490,9 +490,9 @@ public class NettyChannelInjector implements Injector {
 	void processInboundPacket(ChannelHandlerContext ctx, Object packet, Class<?> packetClass) {
 		if (this.channelListener.hasMainThreadListener(packetClass) && !this.server.isPrimaryThread()) {
 			// not on the main thread but we are required to be - re-schedule the packet on the main thread
-			this.server.getScheduler().runTask(
+			this.server.getGlobalRegionScheduler().run(
 					this.injectionFactory.getPlugin(),
-					() -> this.processInboundPacket(ctx, packet, packetClass));
+					task -> this.processInboundPacket(ctx, packet, packetClass));
 			return;
 		}
 
@@ -555,9 +555,9 @@ public class NettyChannelInjector implements Injector {
 		// ensure that we are on the main thread if we need to
 		if (this.channelListener.hasMainThreadListener(packet.getClass()) && !this.server.isPrimaryThread()) {
 			// not on the main thread but we are required to be - re-schedule the packet on the main thread
-			this.server.getScheduler().scheduleSyncDelayedTask(
+			this.server.getGlobalRegionScheduler().runDelayed(
 					this.injectionFactory.getPlugin(),
-					() -> this.sendServerPacket(packet, null, true));
+					task -> this.sendServerPacket(packet, null, true), 1);
 			return null;
 		}
 

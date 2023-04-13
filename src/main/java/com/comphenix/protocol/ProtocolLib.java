@@ -44,12 +44,16 @@ import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
+import org.bukkit.Bukkit;
 import org.bukkit.Server;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * The main entry point for ProtocolLib.
@@ -98,7 +102,7 @@ public class ProtocolLib extends JavaPlugin {
 
 	private Statistics statistics;
 
-	private int packetTask = -1;
+	private ScheduledTask packetTask = null;
 	private int tickCounter = 0;
 	private int configExpectedMod = -1;
 
@@ -485,12 +489,12 @@ public class ProtocolLib extends JavaPlugin {
 
 	private void createPacketTask(Server server) {
 		try {
-			if (this.packetTask >= 0) {
+			if (this.packetTask != null) {
 				throw new IllegalStateException("Packet task has already been created");
 			}
 
 			// Attempt to create task
-			this.packetTask = server.getScheduler().scheduleSyncRepeatingTask(this, () -> {
+			this.packetTask = Bukkit.getServer().getGlobalRegionScheduler().runAtFixedRate(this, task -> {
 				AsyncFilterManager manager = (AsyncFilterManager) protocolManager.getAsynchronousManager();
 
 				// We KNOW we're on the main thread at the moment
@@ -507,7 +511,7 @@ public class ProtocolLib extends JavaPlugin {
 		} catch (OutOfMemoryError e) {
 			throw e;
 		} catch (Throwable e) {
-			if (this.packetTask == -1) {
+			if (this.packetTask == null) {
 				reporter.reportDetailed(this, Report.newBuilder(REPORT_CANNOT_CREATE_TIMEOUT_TASK).error(e));
 			}
 		}
@@ -566,9 +570,9 @@ public class ProtocolLib extends JavaPlugin {
 		}
 
 		// Clean up
-		if (this.packetTask >= 0) {
-			this.getServer().getScheduler().cancelTask(this.packetTask);
-			this.packetTask = -1;
+		if (this.packetTask != null) {
+			packetTask.cancel();
+			this.packetTask = null;
 		}
 
 		// And redirect handler too

@@ -163,9 +163,7 @@ public class PacketFilterManager implements ListenerInvoker, InternalManager {
 				// ensure we are on the main thread if any listener requires that
 				if (this.playerInjectionHandler.hasMainThreadListener(packet.getType()) && !this.server.isPrimaryThread()) {
 					NetworkMarker copy = marker; // okay fine
-					this.server.getScheduler().scheduleSyncDelayedTask(
-							this.plugin,
-							() -> this.sendServerPacket(receiver, packet, copy, false));
+					receiver.getScheduler().runDelayed(this.plugin, task -> this.sendServerPacket(receiver, packet, copy, false), null, 1);
 					return;
 				}
 
@@ -215,9 +213,7 @@ public class PacketFilterManager implements ListenerInvoker, InternalManager {
 		if (!this.closed) {
 			// make sure we are on the main thread if any listener of the packet needs it
 			if (this.playerInjectionHandler.hasMainThreadListener(packet.getType()) && !this.server.isPrimaryThread()) {
-				this.server.getScheduler().scheduleSyncDelayedTask(
-						this.plugin,
-						() -> this.receiveClientPacket(sender, packet, marker, filters));
+				this.server.getGlobalRegionScheduler().runDelayed(this.plugin, task -> this.receiveClientPacket(sender, packet, marker, filters), 1);
 				return;
 			}
 

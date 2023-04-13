@@ -19,6 +19,7 @@ package com.comphenix.protocol.updater;
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.error.Report;
 import com.comphenix.protocol.utility.Closer;
+import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 
 import java.io.BufferedReader;
@@ -80,7 +81,7 @@ public final class SpigotUpdater extends Updater {
 			} finally {
 				// Invoke the listeners on the main thread
 				for (Runnable listener : listeners) {
-					plugin.getServer().getScheduler().scheduleSyncDelayedTask(plugin, listener);
+					Bukkit.getServer().getGlobalRegionScheduler().run(plugin, task -> listener.run());
 				}
 			}
 		}

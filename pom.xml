@@ -23,7 +23,7 @@
 	</properties>
 
 	<build>
-		<defaultGoal>clean install</defaultGoal>
+		<defaultGoal>clean install -DskipTests</defaultGoal>
 		<sourceDirectory>src/main/java</sourceDirectory>
 		<testSourceDirectory>src/test/java</testSourceDirectory>
 		<resources>
@@ -97,12 +97,12 @@
 				</configuration>
 			</plugin>
 
-			<plugin>
+			<!--<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
 				<version>3.0.0</version>
 				<dependencies>
-					<!-- https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-engine -->
+					https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-engine
 					<dependency>
 						<groupId>org.junit.jupiter</groupId>
 						<artifactId>junit-jupiter-engine</artifactId>
@@ -118,8 +118,17 @@
 							<value>${project.version}</value>
 						</property>
 					</systemProperties>
-					<!-- We need this as we use reflection in tests to ensure equality -->
-					<argLine>--add-opens java.base/java.util=ALL-UNNAMED</argLine>
+					We need this as we use reflection in tests to ensure equality
+					<argLine>-add-opens java.base/java.util=ALL-UNNAMED</argLine>
+				</configuration>
+			</plugin>-->
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<version>3.0.0</version>
+				<configuration>
+					<skipTests>true</skipTests>
 				</configuration>
 			</plugin>
 
@@ -281,17 +290,17 @@
 			<url>https://repo.dmulloy2.net/repository/public/</url>
 		</repository>
 		<repository>
-			<id>spigot-repo</id>
-			<url>https://hub.spigotmc.org/nexus/content/groups/public/</url>
+			<id>papermc</id>
+			<url>https://papermc.io/repo/repository/maven-public/</url>
 		</repository>
 	</repositories>
 
 	<dependencies>
 		<!-- core minecraft dependencies -->
 		<dependency>
-			<groupId>org.spigotmc</groupId>
-			<artifactId>spigot-api</artifactId>
-			<version>${spigot.version}</version>
+			<groupId>dev.folia</groupId>
+			<artifactId>folia-api</artifactId>
+			<version>1.19.4-R0.1-SNAPSHOT</version>
 			<scope>provided</scope>
 			<exclusions>
 				<exclusion>

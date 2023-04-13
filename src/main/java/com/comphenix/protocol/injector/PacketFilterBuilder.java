@@ -116,7 +116,7 @@ public class PacketFilterBuilder {
 			throw new IllegalArgumentException("reporter cannot be NULL.");
 		}
 
-		this.asyncManager = new AsyncFilterManager(this.reporter, this.server.getScheduler());
+		this.asyncManager = new AsyncFilterManager(this.reporter, this.server.getGlobalRegionScheduler());
 		return new PacketFilterManager(this);
 	}
 }

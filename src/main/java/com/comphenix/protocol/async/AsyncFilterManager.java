@@ -37,9 +37,9 @@ import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
+import io.papermc.paper.threadedregions.scheduler.GlobalRegionScheduler;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
-import org.bukkit.scheduler.BukkitScheduler;
 
 /**
  * Represents a filter manager for asynchronous packets.
@@ -67,7 +67,7 @@ public class AsyncFilterManager implements AsynchronousManager {
 	private final Thread mainThread;
 	
 	// Default scheduler
-	private final BukkitScheduler scheduler;
+	private final GlobalRegionScheduler scheduler;
 	
 	// Current packet index
 	private final AtomicInteger currentSendingIndex = new AtomicInteger();
@@ -82,7 +82,7 @@ public class AsyncFilterManager implements AsynchronousManager {
 	 * @param reporter - desired error reporter.
 	 * @param scheduler - task scheduler.
 	 */
-	public AsyncFilterManager(ErrorReporter reporter, BukkitScheduler scheduler) {
+	public AsyncFilterManager(ErrorReporter reporter, GlobalRegionScheduler scheduler) {
 		// Initialize timeout listeners
 		this.serverTimeoutListeners = new SortedPacketListenerList();
 		this.clientTimeoutListeners = new SortedPacketListenerList();
@@ -340,7 +340,7 @@ public class AsyncFilterManager implements AsynchronousManager {
 	 * Retrieve the current task scheduler.
 	 * @return Current task scheduler.
 	 */
-	public BukkitScheduler getScheduler() {
+	public GlobalRegionScheduler getGlobalScheduler() {
 		return scheduler;
 	}
 	
